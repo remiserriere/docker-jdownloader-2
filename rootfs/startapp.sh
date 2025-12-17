@@ -28,8 +28,8 @@ is_jd_running() {
 }
 
 is_openvpn_running() {
-    if [ -f /config/openvpn/openvpn.pid ]; then
-        PID=$(cat /config/openvpn/openvpn.pid 2>/dev/null)
+    if [ -f /tmp/openvpn.pid ]; then
+        PID=$(cat /tmp/openvpn.pid 2>/dev/null)
         if [ -n "${PID}" ] && kill -0 "${PID}" 2>/dev/null; then
             return 0
         fi
@@ -38,12 +38,12 @@ is_openvpn_running() {
 }
 
 cleanup_openvpn_tail() {
-    if [ -f /config/openvpn/openvpn-tail.pid ]; then
-        TAIL_PID=$(cat /config/openvpn/openvpn-tail.pid 2>/dev/null)
+    if [ -f /tmp/openvpn-tail.pid ]; then
+        TAIL_PID=$(cat /tmp/openvpn-tail.pid 2>/dev/null)
         if [ -n "${TAIL_PID}" ] && [ "${TAIL_PID}" -eq "${TAIL_PID}" ] 2>/dev/null; then
             kill "${TAIL_PID}" 2>/dev/null || true
         fi
-        rm -f /config/openvpn/openvpn-tail.pid
+        rm -f /tmp/openvpn-tail.pid
     fi
 }
 
@@ -97,7 +97,7 @@ start_openvpn() {
     OPENVPN_OPTS="${OPENVPN_OPTS} --cd /config/openvpn"
     OPENVPN_OPTS="${OPENVPN_OPTS} --script-security 2"
     OPENVPN_OPTS="${OPENVPN_OPTS} --auth-nocache"
-    OPENVPN_OPTS="${OPENVPN_OPTS} --writepid /config/openvpn/openvpn.pid"
+    OPENVPN_OPTS="${OPENVPN_OPTS} --writepid /tmp/openvpn.pid"
     OPENVPN_OPTS="${OPENVPN_OPTS} --daemon"
 
     log "Starting OpenVPN..."
@@ -113,7 +113,7 @@ start_openvpn() {
     # Wait a moment and verify it started
     sleep 2
     if is_openvpn_running; then
-        OPENVPN_PID=$(cat /config/openvpn/openvpn.pid 2>/dev/null)
+        OPENVPN_PID=$(cat /tmp/openvpn.pid 2>/dev/null)
         if [ -n "${OPENVPN_PID}" ]; then
             log "OpenVPN started successfully (PID: ${OPENVPN_PID})"
         else
@@ -122,10 +122,10 @@ start_openvpn() {
         
         # Start a background process to tail OpenVPN logs to stdout
         # This allows logs to appear in docker logs while also being saved to file
-        if [ ! -f /config/openvpn/openvpn-tail.pid ]; then
+        if [ ! -f /tmp/openvpn-tail.pid ]; then
             tail -F /config/logs/openvpn.log 2>/dev/null | sed 's/^/[openvpn] /' &
             TAIL_PID=$!
-            echo "$TAIL_PID" > /config/openvpn/openvpn-tail.pid
+            echo "$TAIL_PID" > /tmp/openvpn-tail.pid
         fi
         
         return 0
@@ -142,7 +142,7 @@ stop_openvpn() {
     fi
 
     log "Stopping OpenVPN..."
-    PID=$(cat /config/openvpn/openvpn.pid 2>/dev/null)
+    PID=$(cat /tmp/openvpn.pid 2>/dev/null)
     if [ -n "${PID}" ] && [ "${PID}" -eq "${PID}" ] 2>/dev/null; then
         kill "${PID}" 2>/dev/null || true
         # Wait up to 5 seconds for OpenVPN to stop
@@ -158,7 +158,7 @@ stop_openvpn() {
             kill -9 "${PID}" 2>/dev/null || true
         fi
         
-        rm -f /config/openvpn/openvpn.pid
+        rm -f /tmp/openvpn.pid
         log "OpenVPN stopped"
     fi
 

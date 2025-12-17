@@ -5,8 +5,8 @@
 
 set -u # Treat unset variables as an error
 
-OPENVPN_PID_FILE="/config/openvpn/openvpn.pid"
-OPENVPN_TAIL_PID_FILE="/config/openvpn/openvpn-tail.pid"
+OPENVPN_PID_FILE="/tmp/openvpn.pid"
+OPENVPN_TAIL_PID_FILE="/tmp/openvpn-tail.pid"
 
 log() {
     echo "[openvpn-control] $@"

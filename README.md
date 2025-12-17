@@ -16,6 +16,9 @@ The graphical user interface (GUI) of the application can be accessed through a
 modern web browser, requiring no installation or configuration on the client
 side, or via any VNC client.
 
+> [!TIP]
+> **New to this container?** Check out the [Quick Start Guide](QUICKSTART.md) for common usage examples!
+
 > [!NOTE]
 > This Docker container is entirely unofficial and not made by the creators of JDownloader 2.
 

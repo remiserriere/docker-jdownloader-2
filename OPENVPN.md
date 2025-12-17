@@ -224,6 +224,27 @@ This is useful for:
 - Stopping the VPN temporarily while keeping JDownloader running
 - Troubleshooting connection issues
 
+### Using OpenVPN Reconnect from JDownloader
+
+JDownloader has a built-in feature to handle reconnects using external tools. You can configure JDownloader to reconnect the VPN connection using the provided `jd-openvpn-reconnect` tool:
+
+1. Open JDownloader GUI in your browser at `http://localhost:5800`
+2. Go to **Settings** → **Advanced Settings**
+3. Search for **ReconnectSettings**
+4. Set the following:
+   - **Reconnect Method**: External Tool
+   - **External Reconnect Script**: `/usr/local/bin/jd-openvpn-reconnect`
+
+Alternatively, you can use the `openvpn-control` command directly:
+   - **External Reconnect Script**: `/usr/local/bin/openvpn-control restart`
+
+**How it works:**
+- The `jd-openvpn-reconnect` tool is a wrapper that safely restarts the OpenVPN connection
+- It runs with the necessary privileges to control the OpenVPN service
+- When JDownloader triggers a reconnect, it will restart your VPN connection to get a new IP address
+
+**Note:** This feature requires OpenVPN to be enabled (`OPENVPN_ENABLED=1`)
+
 ### DNS Issues
 
 If you experience DNS resolution problems:

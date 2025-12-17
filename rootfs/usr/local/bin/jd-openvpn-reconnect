@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Wrapper script for JDownloader to reconnect OpenVPN
+# This script can be called by the app user and uses sudo to control OpenVPN
+# Usage: jd-openvpn-reconnect
+
+set -u # Treat unset variables as an error
+
+log() {
+    echo "[jd-openvpn-reconnect] $@"
+}
+
+log_error() {
+    echo "[jd-openvpn-reconnect] ERROR: $@" >&2
+}
+
+# Check if OpenVPN is enabled
+if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
+    log_error "OpenVPN is not enabled (OPENVPN_ENABLED=0)"
+    log_error "Set OPENVPN_ENABLED=1 environment variable to enable OpenVPN"
+    exit 1
+fi
+
+# Call openvpn-control restart with sudo
+log "Reconnecting OpenVPN..."
+sudo /usr/local/bin/openvpn-control restart
+
+exit $?

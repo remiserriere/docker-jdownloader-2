@@ -157,6 +157,8 @@ password
 - All JDownloader traffic will be routed through the VPN when enabled
 - The OpenVPN logs are available in `/config/logs/openvpn.log`
 
+For detailed setup instructions, troubleshooting, and advanced configuration, see the [OpenVPN Configuration Guide](OPENVPN.md).
+
 ## Usage
 
 ```shell
@@ -165,7 +167,7 @@ docker run [-d] \
     [-e <VARIABLE_NAME>=<VALUE>]... \
     [-v <HOST_DIR>:<CONTAINER_DIR>[:PERMISSIONS]]... \
     [-p <HOST_PORT>:<CONTAINER_PORT>]... \
-    jlesage/jdownloader-2
+    ghcr.io/remiserriere/jdownloader-2
 ```
 
 | Parameter | Description |

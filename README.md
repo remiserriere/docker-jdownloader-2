@@ -156,9 +156,28 @@ password
 ### Important Notes
 
 - The container requires `--cap-add=NET_ADMIN` and `--device=/dev/net/tun` to establish VPN connections
-- When OpenVPN is enabled, the process runs with auto-restart capability - if killed, it will automatically restart
+- When OpenVPN is enabled, the service starts automatically on container boot
+- The OpenVPN process runs with auto-restart capability - if it crashes, it will automatically restart
 - All JDownloader traffic will be routed through the VPN when enabled
 - The OpenVPN logs are available in `/config/logs/openvpn.log`
+
+### Managing OpenVPN Service
+
+You can control the OpenVPN service from within the container using the `openvpn-control` command:
+
+```bash
+# Check service status
+docker exec jdownloader-2 openvpn-control status
+
+# Restart the VPN connection
+docker exec jdownloader-2 openvpn-control restart
+
+# Stop OpenVPN (useful for troubleshooting)
+docker exec jdownloader-2 openvpn-control stop
+
+# Start OpenVPN
+docker exec jdownloader-2 openvpn-control start
+```
 
 For detailed setup instructions, troubleshooting, and advanced configuration, see the [OpenVPN Configuration Guide](OPENVPN.md).
 

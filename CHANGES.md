@@ -10,15 +10,18 @@ Added full OpenVPN support to route all JDownloader traffic through a VPN connec
 
 **New Features:**
 - Automatic OpenVPN process management with auto-restart
+- OpenVPN service automatically starts on boot when enabled
 - Support for username/password authentication via credentials file
 - Support for certificate-based authentication
 - Dedicated logging for OpenVPN operations
 - Proper error handling and validation
 - Secure defaults (OpenVPN disabled by default)
+- Manual service control via `openvpn-control` command
 
 **New Files:**
 - `rootfs/etc/services.d/openvpn/run` - OpenVPN service script
 - `rootfs/etc/cont-init.d/50-openvpn.sh` - OpenVPN initialization script
+- `rootfs/usr/local/bin/openvpn-control` - OpenVPN service control utility
 - `OPENVPN.md` - Comprehensive OpenVPN configuration guide
 - `docker-compose-openvpn.yml` - Example docker-compose file with OpenVPN
 

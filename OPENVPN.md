@@ -134,6 +134,9 @@ docker-compose up -d
 # View container logs
 docker logs jdownloader-2
 
+# Check OpenVPN service status
+docker exec jdownloader-2 openvpn-control status
+
 # Check OpenVPN logs specifically
 docker exec jdownloader-2 tail -f /config/logs/openvpn.log
 ```
@@ -197,6 +200,29 @@ To monitor reconnection attempts:
 ```bash
 docker exec jdownloader-2 tail -f /config/logs/openvpn.log
 ```
+
+### Manual Service Control
+
+You can manually control the OpenVPN service from within the container using the `openvpn-control` command:
+
+```bash
+# Start OpenVPN service
+docker exec jdownloader-2 openvpn-control start
+
+# Stop OpenVPN service
+docker exec jdownloader-2 openvpn-control stop
+
+# Restart OpenVPN service
+docker exec jdownloader-2 openvpn-control restart
+
+# Check OpenVPN service status
+docker exec jdownloader-2 openvpn-control status
+```
+
+This is useful for:
+- Restarting the VPN connection without restarting the entire container
+- Stopping the VPN temporarily while keeping JDownloader running
+- Troubleshooting connection issues
 
 ### DNS Issues
 

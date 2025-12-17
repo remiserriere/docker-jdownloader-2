@@ -181,6 +181,14 @@ docker exec jdownloader-2 openvpn-control stop
 docker exec jdownloader-2 openvpn-control start
 ```
 
+**JDownloader Reconnect Integration:**
+
+JDownloader can automatically reconnect the VPN to get a new IP address. To configure this:
+1. Open JDownloader GUI in your browser
+2. Go to **Settings** → **Advanced Settings** → **ReconnectSettings**
+3. Set **Reconnect Method** to "External Tool"
+4. Set **External Reconnect Script** to `/usr/local/bin/jd-openvpn-reconnect`
+
 For detailed setup instructions, troubleshooting, and advanced configuration, see the [OpenVPN Configuration Guide](OPENVPN.md).
 
 ## Usage

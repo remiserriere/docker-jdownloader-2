@@ -116,7 +116,7 @@ start_service() {
     
     # Start OpenVPN with logging to file
     OPENVPN_OPTS="${OPENVPN_OPTS} --log-append /config/logs/openvpn.log"
-    /usr/sbin/openvpn ${OPENVPN_OPTS}
+    sudo /usr/sbin/openvpn ${OPENVPN_OPTS}
     
     # Wait up to 5 seconds for the service to start
     RETRY_COUNT=0
@@ -162,7 +162,7 @@ stop_service() {
     fi
     
     # Send SIGTERM to gracefully stop OpenVPN
-    kill "${PID}" 2>/dev/null
+    sudo /usr/local/bin/kill-openvpn "${PID}" 2>/dev/null
     
     # Wait up to 5 seconds for the service to stop
     RETRY_COUNT=0
@@ -181,7 +181,7 @@ stop_service() {
     # If still running, force kill
     if is_service_running; then
         log "Sending SIGKILL to force stop OpenVPN..."
-        kill -9 "${PID}" 2>/dev/null
+        sudo /usr/local/bin/kill-openvpn -9 "${PID}" 2>/dev/null
         sleep 1
         rm -f "${OPENVPN_PID_FILE}"
         cleanup_tail_process

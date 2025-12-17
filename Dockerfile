@@ -69,13 +69,18 @@ RUN \
 COPY rootfs/ /
 COPY --from=jd2 /defaults/JDownloader.jar /defaults/JDownloader.jar
 
-# Configure sudo to allow app user to run openvpn and kill-openvpn wrapper ONLY (security: restricted to these binaries only)
-# This allows OpenVPN to run with NET_ADMIN capabilities and be stopped while preventing any other sudo usage
+# Configure sudo to allow app user to run openvpn-related commands ONLY (security: restricted to these binaries only)
+# This allows OpenVPN to run with NET_ADMIN capabilities and be controlled by the app user
 # The kill-openvpn wrapper validates that only OpenVPN processes can be killed
+# The openvpn-control script provides safe start/stop/restart functionality
+# The jd-openvpn-reconnect wrapper allows JDownloader to reconnect OpenVPN via external tool
 RUN \
     chmod +x /usr/local/bin/kill-openvpn && \
+    chmod +x /usr/local/bin/openvpn-control && \
+    chmod +x /usr/local/bin/jd-openvpn-reconnect && \
     echo "app ALL=(ALL) NOPASSWD: /usr/sbin/openvpn" > /etc/sudoers.d/openvpn && \
     echo "app ALL=(ALL) NOPASSWD: /usr/local/bin/kill-openvpn" >> /etc/sudoers.d/openvpn && \
+    echo "app ALL=(ALL) NOPASSWD: /usr/local/bin/openvpn-control" >> /etc/sudoers.d/openvpn && \
     chmod 0440 /etc/sudoers.d/openvpn && \
     visudo -c -f /etc/sudoers.d/openvpn
 

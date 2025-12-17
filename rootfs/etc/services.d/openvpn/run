@@ -1,0 +1,65 @@
+#!/bin/sh
+
+set -u # Treat unset variables as an error.
+
+# Check if OpenVPN is enabled
+if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
+    # OpenVPN is disabled, exit without error
+    exit 0
+fi
+
+log() {
+    echo "[openvpn] $@"
+}
+
+log_error() {
+    echo "[openvpn] ERROR: $@" >&2
+}
+
+# Check for required capabilities and devices
+if [ ! -c /dev/net/tun ]; then
+    log_error "/dev/net/tun device not found!"
+    log_error "Container must be started with --device=/dev/net/tun"
+    exit 1
+fi
+
+# Check if config file exists
+if [ ! -f "${OPENVPN_CONFIG_FILE}" ]; then
+    log_error "OpenVPN configuration file not found: ${OPENVPN_CONFIG_FILE}"
+    log_error "Please mount your OpenVPN configuration file to ${OPENVPN_CONFIG_FILE}"
+    exit 1
+fi
+
+# Create OpenVPN config directory and logs directory
+mkdir -p /config/openvpn
+mkdir -p /config/logs
+
+# Prepare OpenVPN arguments
+OPENVPN_OPTS="--config ${OPENVPN_CONFIG_FILE}"
+
+# Check if credentials file exists and add auth-user-pass option
+if [ -f /config/openvpn/credentials.txt ]; then
+    OPENVPN_OPTS="${OPENVPN_OPTS} --auth-user-pass /config/openvpn/credentials.txt"
+    log "Using credentials from /config/openvpn/credentials.txt"
+fi
+
+# Add other common options
+OPENVPN_OPTS="${OPENVPN_OPTS} --cd /config/openvpn"
+OPENVPN_OPTS="${OPENVPN_OPTS} --script-security 2"
+OPENVPN_OPTS="${OPENVPN_OPTS} --auth-nocache"
+
+log "Starting OpenVPN..."
+log "Configuration file: ${OPENVPN_CONFIG_FILE}"
+
+# Create a named pipe for logging
+LOG_PIPE=/tmp/openvpn-log-pipe.$$
+mkfifo "${LOG_PIPE}"
+
+# Start tee in background to log output
+tee -a /config/logs/openvpn.log < "${LOG_PIPE}" &
+TEE_PID=$!
+
+# Start OpenVPN with auto-restart
+# The exec will replace this process, and s6 will handle restarts
+# Output goes to the named pipe which tee reads and logs
+exec /usr/sbin/openvpn ${OPENVPN_OPTS} > "${LOG_PIPE}" 2>&1

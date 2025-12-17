@@ -1,16 +1,23 @@
-# Docker container for JDownloader 2
-[![Release](https://img.shields.io/github/release/jlesage/docker-jdownloader-2.svg?logo=github&style=for-the-badge)](https://github.com/jlesage/docker-jdownloader-2/releases/latest)
-[![Docker Image Size](https://img.shields.io/docker/image-size/jlesage/jdownloader-2/latest?logo=docker&style=for-the-badge)](https://hub.docker.com/r/jlesage/jdownloader-2/tags)
-[![Docker Pulls](https://img.shields.io/docker/pulls/jlesage/jdownloader-2?label=Pulls&logo=docker&style=for-the-badge)](https://hub.docker.com/r/jlesage/jdownloader-2)
-[![Docker Stars](https://img.shields.io/docker/stars/jlesage/jdownloader-2?label=Stars&logo=docker&style=for-the-badge)](https://hub.docker.com/r/jlesage/jdownloader-2)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/jlesage/docker-jdownloader-2/build-image.yml?logo=github&branch=master&style=for-the-badge)](https://github.com/jlesage/docker-jdownloader-2/actions/workflows/build-image.yml)
-[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg?style=for-the-badge)](https://paypal.me/JocelynLeSage)
+# Docker container for JDownloader 2 with OpenVPN
 
-This project provides a Docker container for [JDownloader 2](http://jdownloader.org).
+> [!IMPORTANT]
+> **This is a modified fork** of [jlesage/docker-jdownloader-2](https://github.com/jlesage/docker-jdownloader-2)
+>
+> **Modifications:**
+> - Added integrated OpenVPN support for secure downloads through VPN
+> - Modified to build and publish images to GitHub Container Registry
+> - Additional configuration options for VPN connectivity
+
+[![Build Status](https://img.shields.io/github/actions/workflow/status/remiserriere/docker-jdownloader-2/build-image.yml?logo=github&style=for-the-badge)](https://github.com/remiserriere/docker-jdownloader-2/actions/workflows/build-image.yml)
+
+This project provides a Docker container for [JDownloader 2](http://jdownloader.org) with integrated OpenVPN support.
 
 The graphical user interface (GUI) of the application can be accessed through a
 modern web browser, requiring no installation or configuration on the client
 side, or via any VNC client.
+
+> [!TIP]
+> **New to this container?** Check out the [Quick Start Guide](QUICKSTART.md) for common usage examples!
 
 > [!NOTE]
 > This Docker container is entirely unofficial and not made by the creators of JDownloader 2.
@@ -30,6 +37,7 @@ your valuable time every day!
 ## Table of Contents
 
    * [Quick Start](#quick-start)
+   * [OpenVPN Support](#openvpn-support)
    * [Usage](#usage)
       * [Environment Variables](#environment-variables)
          * [Deployment Considerations](#deployment-considerations)
@@ -80,7 +88,7 @@ docker run -d \
     -p 5800:5800 \
     -v /docker/appdata/jdownloader-2:/config:rw \
     -v /home/user/Downloads:/output:rw \
-    jlesage/jdownloader-2
+    ghcr.io/remiserriere/jdownloader-2
 ```
 
 Where:
@@ -90,6 +98,70 @@ Where:
 
 Access the JDownloader 2 GUI by browsing to `http://your-host-ip:5800`.
 
+## OpenVPN Support
+
+This container includes built-in OpenVPN support, allowing JDownloader to route all traffic through a VPN connection.
+
+### Prerequisites
+
+You need the following files from your VPN provider:
+- `config.ovpn`: Your OpenVPN configuration file
+- `ca.crt`: Certificate Authority certificate
+- `client.crt`: Client certificate (if using certificate authentication)
+- `client.key`: Client private key (if using certificate authentication)
+- `credentials.txt`: Username and password (if using password authentication)
+
+### Quick Start with OpenVPN
+
+```shell
+docker run -d \
+    --name=jdownloader-2 \
+    --cap-add=NET_ADMIN \
+    --device=/dev/net/tun \
+    -p 5800:5800 \
+    -e OPENVPN_ENABLED=1 \
+    -v /docker/appdata/jdownloader-2:/config:rw \
+    -v /home/user/Downloads:/output:rw \
+    -v /path/to/vpn/config.ovpn:/config/openvpn/config.ovpn:ro \
+    -v /path/to/vpn/ca.crt:/config/openvpn/ca.crt:ro \
+    -v /path/to/vpn/credentials.txt:/config/openvpn/credentials.txt:ro \
+    ghcr.io/remiserriere/jdownloader-2
+```
+
+### OpenVPN Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+|`OPENVPN_ENABLED`| Set to `1` to enable OpenVPN. When enabled, the OpenVPN process will automatically restart if it crashes. | `0` |
+|`OPENVPN_CONFIG_FILE`| Path to the OpenVPN configuration file inside the container. | `/config/openvpn/config.ovpn` |
+
+### OpenVPN Configuration Files
+
+Mount your OpenVPN configuration files to `/config/openvpn/` inside the container:
+
+| File | Required | Description |
+|------|----------|-------------|
+|`config.ovpn`| Yes | Your OpenVPN configuration file |
+|`ca.crt`| Depends | Certificate Authority certificate (required if specified in config.ovpn) |
+|`client.crt`| No | Client certificate (for certificate-based authentication) |
+|`client.key`| No | Client private key (for certificate-based authentication) |
+|`credentials.txt`| No | Username and password for authentication (one per line) |
+
+The `credentials.txt` file format:
+```
+username
+password
+```
+
+### Important Notes
+
+- The container requires `--cap-add=NET_ADMIN` and `--device=/dev/net/tun` to establish VPN connections
+- When OpenVPN is enabled, the process runs with auto-restart capability - if killed, it will automatically restart
+- All JDownloader traffic will be routed through the VPN when enabled
+- The OpenVPN logs are available in `/config/logs/openvpn.log`
+
+For detailed setup instructions, troubleshooting, and advanced configuration, see the [OpenVPN Configuration Guide](OPENVPN.md).
+
 ## Usage
 
 ```shell
@@ -98,7 +170,7 @@ docker run [-d] \
     [-e <VARIABLE_NAME>=<VALUE>]... \
     [-v <HOST_DIR>:<CONTAINER_DIR>[:PERMISSIONS]]... \
     [-p <HOST_PORT>:<CONTAINER_PORT>]... \
-    jlesage/jdownloader-2
+    ghcr.io/remiserriere/jdownloader-2
 ```
 
 | Parameter | Description |
@@ -152,6 +224,8 @@ the `-e` parameter in the format `<VARIABLE_NAME>=<VALUE>`.
 |`MYJDOWNLOADER_DEVICE_NAME`| The name of this JDownloader instance.  Note that this can also be configured via the JDownloader GUI. | (no value) |
 |`JDOWNLOADER_HEADLESS`| When set to `1`, JDownloader is running in headless mode, meaning that no GUI is available.  In this mode, MyJDownloader should be used to remote control JDownloader. | `0` |
 |`JDOWNLOADER_MAX_MEM`| Maximum amount of memory JDownloader is allowed to use. One of the following memory unit (case insensitive) should be added as a suffix to the size: `G`, `M` or `K`.  When this variable is not set, the limit is automatically calculated based on the amount of RAM of the system. | (no value) |
+|`OPENVPN_ENABLED`| When set to `1`, enables OpenVPN. The container must be started with `--cap-add=NET_ADMIN` and `--device=/dev/net/tun` for OpenVPN to work. See [OpenVPN Support](#openvpn-support) for details. | `0` |
+|`OPENVPN_CONFIG_FILE`| Path to the OpenVPN configuration file inside the container. | `/config/openvpn/config.ovpn` |
 
 #### Deployment Considerations
 
@@ -253,13 +327,15 @@ included in this example.
 version: '3'
 services:
   jdownloader-2:
-    image: jlesage/jdownloader-2
+    image: ghcr.io/remiserriere/jdownloader-2:latest
     ports:
       - "5800:5800"
     volumes:
       - "/docker/appdata/jdownloader-2:/config:rw"
       - "/home/user/Downloads:/output:rw"
 ```
+
+For a Docker Compose configuration with OpenVPN enabled, see the `docker-compose-openvpn.yml` file in this repository.
 
 ## Docker Image Versioning and Tags
 

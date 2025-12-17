@@ -51,7 +51,12 @@ RUN \
         # For rtmpdump tool.
         rtmpdump \
         # Need for the sponge tool.
-        moreutils
+        moreutils \
+        # OpenVPN support
+        openvpn \
+        # For network utilities
+        iptables \
+        ip6tables
 
 # Generate and install favicons.
 RUN \
@@ -74,7 +79,9 @@ ENV \
     MYJDOWNLOADER_PASSWORD= \
     MYJDOWNLOADER_DEVICE_NAME= \
     JDOWNLOADER_HEADLESS=0 \
-    JDOWNLOADER_MAX_MEM=
+    JDOWNLOADER_MAX_MEM= \
+    OPENVPN_ENABLED=0 \
+    OPENVPN_CONFIG_FILE=/config/openvpn/config.ovpn
 
 # Define mountable directories.
 VOLUME ["/output"]
@@ -86,7 +93,7 @@ EXPOSE 3129
 # Metadata.
 LABEL \
       org.label-schema.name="jdownloader-2" \
-      org.label-schema.description="Docker container for JDownloader 2" \
+      org.label-schema.description="Docker container for JDownloader 2 with OpenVPN support" \
       org.label-schema.version="${DOCKER_IMAGE_VERSION:-unknown}" \
-      org.label-schema.vcs-url="https://github.com/jlesage/docker-jdownloader-2" \
+      org.label-schema.vcs-url="https://github.com/remiserriere/docker-jdownloader-2" \
       org.label-schema.schema-version="1.0"

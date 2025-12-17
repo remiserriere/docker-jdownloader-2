@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+  jdownloader-2:
+    image: ghcr.io/remiserriere/jdownloader-2:latest
+    container_name: jdownloader-2
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    ports:
+      - "5800:5800"
+      # Uncomment if using MyJDownloader Direct Connection mode
+      # - "3129:3129"
+    environment:
+      # OpenVPN Configuration
+      - OPENVPN_ENABLED=1
+      - OPENVPN_CONFIG_FILE=/config/openvpn/config.ovpn
+      
+      # Optional: JDownloader Configuration
+      # - MYJDOWNLOADER_EMAIL=your-email@example.com
+      # - MYJDOWNLOADER_PASSWORD=your-password
+      # - MYJDOWNLOADER_DEVICE_NAME=JDownloader-Docker
+      # - JDOWNLOADER_HEADLESS=0
+      # - JDOWNLOADER_MAX_MEM=2G
+      
+      # Optional: User/Group IDs
+      # - USER_ID=1000
+      # - GROUP_ID=1000
+      
+      # Optional: Timezone
+      # - TZ=Europe/Paris
+    volumes:
+      # JDownloader config and data
+      - ./config:/config:rw
+      - ./downloads:/output:rw
+      
+      # OpenVPN configuration files
+      # Mount your OpenVPN config file
+      - ./vpn/config.ovpn:/config/openvpn/config.ovpn:ro
+      
+      # Mount certificate files (if required by your VPN)
+      - ./vpn/ca.crt:/config/openvpn/ca.crt:ro
+      # - ./vpn/client.crt:/config/openvpn/client.crt:ro
+      # - ./vpn/client.key:/config/openvpn/client.key:ro
+      
+      # Mount credentials file (if using username/password authentication)
+      - ./vpn/credentials.txt:/config/openvpn/credentials.txt:ro
+    restart: unless-stopped

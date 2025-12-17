@@ -1,0 +1,19 @@
+# Docker compose local files
+docker-compose.override.yml
+.env
+
+# Local test directories
+config/
+downloads/
+vpn/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -5,8 +5,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DOCKER_IMAGE_NAME: jlesage/jdownloader-2
-  PLATFORMS: linux/amd64,linux/386,linux/arm64/v8
+  DOCKER_IMAGE_NAME: remiserriere/jdownloader-2
+  PLATFORMS: linux/amd64,linux/arm64/v8
 
 on:
   push:
@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
         with:
@@ -58,11 +61,11 @@ jobs:
             LABEL_VERSION=${VERSION:1}
           fi
           # Determine the Docker container tags.
-          TAGS="${{ env.DOCKER_IMAGE_NAME }}:${VERSION}"
+          # Always push to GitHub Container Registry
+          TAGS="ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:${VERSION}"
           if [[ $GITHUB_REF =~ refs/tags/* ]]; then
-            TAGS="$TAGS,${{ env.DOCKER_IMAGE_NAME }}:latest"
+            TAGS="$TAGS,ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:latest"
           fi
-          TAGS="$TAGS,$(echo $TAGS | tr ',' '\n' | sed 's|^|ghcr.io/|' | tr '\n' ',')"
           # Determine the release type.
           if [[ $GITHUB_REF =~ refs/tags/* ]]; then
               IS_RELEASE=yes
@@ -100,15 +103,7 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to DockerHub
-        if: ${{ steps.prep.outputs.is_release == 'yes' }}
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
       - name: Login to GitHub Container Registry
-        if: ${{ steps.prep.outputs.is_release == 'yes' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -118,7 +113,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          push: ${{ steps.prep.outputs.is_release == 'yes' }}
+          push: true
           provenance: false
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.prep.outputs.tags }}
@@ -128,33 +123,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ env.DOCKER_IMAGE_NAME }}
 
       - name: Inspect
-        if: ${{ steps.prep.outputs.is_release == 'yes' }}
         run: |
-          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE_NAME }}:${{ steps.prep.outputs.version }}
+          docker buildx imagetools inspect ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:${{ steps.prep.outputs.version }}
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        if: ${{ steps.prep.outputs.release_type == 'standard' }}
 
-      - name: Dockerhub description
-        if: ${{ steps.prep.outputs.release_type == 'standard' }}
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          repository: ${{ env.DOCKER_IMAGE_NAME }}
-          readme-filepath: DOCKERHUB.md
-
-  notification:
-    name: Notification
-    needs: [ build ]
-    runs-on: ubuntu-22.04
-    if: ${{ always() && github.event_name != 'pull_request' }}
-
-    steps:
-      - name: Pushover notification
-        uses: desiderati/github-action-pushover@v1
-        with:
-          job-status: ${{ needs.build.result }}
-          pushover-api-token: ${{ secrets.PUSHOVER_API_TOKEN }}
-          pushover-user-key: ${{ secrets.PUSHOVER_USER_KEY }}

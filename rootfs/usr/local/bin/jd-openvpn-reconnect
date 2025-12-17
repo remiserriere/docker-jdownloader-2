@@ -10,19 +10,10 @@ log() {
     echo "[jd-openvpn-reconnect] $@"
 }
 
-log_error() {
-    echo "[jd-openvpn-reconnect] ERROR: $@" >&2
-}
-
-# Check if OpenVPN is enabled
-if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
-    log_error "OpenVPN is not enabled (OPENVPN_ENABLED=0)"
-    log_error "Set OPENVPN_ENABLED=1 environment variable to enable OpenVPN"
-    exit 1
-fi
-
 # Call openvpn-control restart with sudo
+# The openvpn-control script will perform all necessary validation
 log "Reconnecting OpenVPN..."
 sudo /usr/local/bin/openvpn-control restart
+result=$?
 
-exit $?
+exit $result

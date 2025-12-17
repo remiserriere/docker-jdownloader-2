@@ -39,7 +39,7 @@ cp /path/to/your/ca.crt ~/jdownloader-vpn/vpn/
 
 ### Step 2: Create Credentials File (if needed)
 
-If your VPN requires username and password authentication, create a `credentials.txt` file:
+If your VPN requires username and password authentication, create a credentials file (you can name it `credentials.txt`, `auth.txt`, or any name):
 
 ```bash
 cat > ~/jdownloader-vpn/vpn/credentials.txt << EOF
@@ -48,29 +48,41 @@ your-password
 EOF
 ```
 
-Make sure to secure this file:
-
-```bash
-chmod 600 ~/jdownloader-vpn/vpn/credentials.txt
-```
+**Note about file permissions:** 
+- If you mount files as read-write (`:rw`), the container will attempt to set secure permissions (600)
+- If you mount files as read-only (`:ro`), permission changes will be skipped automatically
+- Both approaches are secure - read-only mounts prevent any modifications to your VPN files
 
 ### Step 3: Adjust OpenVPN Configuration (if needed)
 
 Some VPN configurations may need adjustments. Edit your `config.ovpn` file if necessary:
 
-1. Ensure certificate paths are relative or just filenames (not absolute paths)
-2. If your config has `auth-user-pass`, you can either:
-   - Remove the line (the container will add it automatically if credentials.txt exists)
-   - Or change it to: `auth-user-pass credentials.txt`
+1. Ensure certificate paths point to `/config/openvpn/` or use relative paths:
+   ```
+   # Examples of valid paths:
+   ca /config/openvpn/ca.crt
+   ca ca.crt
+   ```
+
+2. For authentication credentials, you have two options:
+   - **Option A:** Specify the credential file directly in your `.ovpn` config:
+     ```
+     auth-user-pass /config/openvpn/auth.txt
+     ```
+   - **Option B:** Create a `credentials.txt` file and omit the `auth-user-pass` line from the config (the container will add it automatically)
 
 Example modifications:
 
 ```
 # Before
 ca /absolute/path/to/ca.crt
+cert /absolute/path/to/client.crt
+key /absolute/path/to/client.key
 
 # After
-ca ca.crt
+ca /config/openvpn/ca.crt
+cert /config/openvpn/client.crt
+key /config/openvpn/client.key
 ```
 
 ### Step 4: Run with Docker

@@ -2,12 +2,6 @@
 
 set -u # Treat unset variables as an error.
 
-# Check if OpenVPN is enabled
-if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
-    # OpenVPN is disabled, exit without error
-    exit 0
-fi
-
 log() {
     echo "[openvpn] $@"
 }
@@ -37,10 +31,15 @@ mkdir -p /config/logs
 # Prepare OpenVPN arguments
 OPENVPN_OPTS="--config ${OPENVPN_CONFIG_FILE}"
 
-# Check if credentials file exists and add auth-user-pass option
-if [ -f /config/openvpn/credentials.txt ]; then
-    OPENVPN_OPTS="${OPENVPN_OPTS} --auth-user-pass /config/openvpn/credentials.txt"
-    log "Using credentials from /config/openvpn/credentials.txt"
+# Check if auth-user-pass is already specified in the config file
+# If not, and credentials.txt exists, add it as a command-line option
+if ! grep -q "^[[:space:]]*auth-user-pass\([[:space:]]\|$\)" "${OPENVPN_CONFIG_FILE}"; then
+    if [ -f /config/openvpn/credentials.txt ]; then
+        OPENVPN_OPTS="${OPENVPN_OPTS} --auth-user-pass /config/openvpn/credentials.txt"
+        log "Using credentials from /config/openvpn/credentials.txt"
+    fi
+else
+    log "auth-user-pass directive found in config file"
 fi
 
 # Add other common options

@@ -23,6 +23,14 @@ log "OpenVPN is enabled, checking configuration..."
 mkdir -p /config/openvpn
 mkdir -p /config/logs
 
+# Remove the down file to allow the service to start
+# In s6-overlay, a 'down' file in the service directory prevents the service from auto-starting
+# By default, we ship with a down file, and remove it here when OpenVPN is enabled
+if [ -f /etc/services.d/openvpn/down ]; then
+    rm -f /etc/services.d/openvpn/down
+    log "Enabled OpenVPN service auto-start"
+fi
+
 # Verify that the config file exists
 if [ ! -f "${OPENVPN_CONFIG_FILE}" ]; then
     log_error "OpenVPN configuration file not found: ${OPENVPN_CONFIG_FILE}"
@@ -43,22 +51,27 @@ fi
 log "TUN device is available"
 
 # Check for credentials file
+# Note: The credentials file may be specified in the .ovpn config with auth-user-pass directive
 if [ -f /config/openvpn/credentials.txt ]; then
     log "Credentials file found: /config/openvpn/credentials.txt"
-    # Ensure credentials file has correct permissions
-    chmod 600 /config/openvpn/credentials.txt
+    # Ensure credentials file has correct permissions (fail gracefully if read-only)
+    chmod 600 /config/openvpn/credentials.txt 2>/dev/null || log "Note: Could not change permissions on credentials.txt (may be mounted read-only)"
 else
-    log "No credentials file found. If your VPN requires username/password authentication,"
-    log "please create /config/openvpn/credentials.txt with username on first line and password on second line."
+    log "No credentials.txt file found."
+fi
+
+# Check if auth-user-pass is specified in the config file
+if grep -q "^[[:space:]]*auth-user-pass\([[:space:]]\|$\)" "${OPENVPN_CONFIG_FILE}"; then
+    log "auth-user-pass directive found in OpenVPN config file"
 fi
 
 # Check for certificate files
 for cert_file in ca.crt client.crt client.key; do
     if [ -f "/config/openvpn/${cert_file}" ]; then
         log "Certificate file found: /config/openvpn/${cert_file}"
-        # Ensure proper permissions for key files
+        # Ensure proper permissions for key files (fail gracefully if read-only)
         if [ "${cert_file}" = "client.key" ]; then
-            chmod 600 "/config/openvpn/${cert_file}"
+            chmod 600 "/config/openvpn/${cert_file}" 2>/dev/null || log "Note: Could not change permissions on ${cert_file} (may be mounted read-only)"
         fi
     fi
 done

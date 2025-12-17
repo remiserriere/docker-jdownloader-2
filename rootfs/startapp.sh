@@ -35,8 +35,9 @@ is_numeric() {
 }
 
 is_openvpn_running() {
-    if [ -f "${OPENVPN_PID_FILE:-/tmp/openvpn.pid}" ]; then
-        PID=$(cat "${OPENVPN_PID_FILE:-/tmp/openvpn.pid}" 2>/dev/null)
+    local pid_file="${OPENVPN_PID_FILE:-/tmp/openvpn.pid}"
+    if [ -f "${pid_file}" ]; then
+        PID=$(cat "${pid_file}" 2>/dev/null)
         if [ -n "${PID}" ] && kill -0 "${PID}" 2>/dev/null; then
             return 0
         fi
@@ -45,12 +46,13 @@ is_openvpn_running() {
 }
 
 cleanup_openvpn_tail() {
-    if [ -f "${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}" ]; then
-        TAIL_PID=$(cat "${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}" 2>/dev/null)
+    local tail_pid_file="${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}"
+    if [ -f "${tail_pid_file}" ]; then
+        TAIL_PID=$(cat "${tail_pid_file}" 2>/dev/null)
         if [ -n "${TAIL_PID}" ] && is_numeric "${TAIL_PID}"; then
             kill "${TAIL_PID}" 2>/dev/null || true
         fi
-        rm -f "${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}"
+        rm -f "${tail_pid_file}"
     fi
 }
 
@@ -120,7 +122,8 @@ start_openvpn() {
     # Wait a moment and verify it started
     sleep 2
     if is_openvpn_running; then
-        OPENVPN_PID=$(cat "${OPENVPN_PID_FILE:-/tmp/openvpn.pid}" 2>/dev/null)
+        local pid_file="${OPENVPN_PID_FILE:-/tmp/openvpn.pid}"
+        OPENVPN_PID=$(cat "${pid_file}" 2>/dev/null)
         if [ -n "${OPENVPN_PID}" ]; then
             log "OpenVPN started successfully (PID: ${OPENVPN_PID})"
         else
@@ -129,10 +132,11 @@ start_openvpn() {
         
         # Start a background process to tail OpenVPN logs to stdout
         # This allows logs to appear in docker logs while also being saved to file
-        if [ ! -f "${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}" ]; then
+        local tail_pid_file="${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}"
+        if [ ! -f "${tail_pid_file}" ]; then
             tail -F /config/logs/openvpn.log 2>/dev/null | sed 's/^/[openvpn] /' &
             TAIL_PID=$!
-            echo "$TAIL_PID" > "${OPENVPN_TAIL_PID_FILE:-/tmp/openvpn-tail.pid}"
+            echo "$TAIL_PID" > "${tail_pid_file}"
         fi
         
         return 0
@@ -149,7 +153,8 @@ stop_openvpn() {
     fi
 
     log "Stopping OpenVPN..."
-    PID=$(cat "${OPENVPN_PID_FILE:-/tmp/openvpn.pid}" 2>/dev/null)
+    local pid_file="${OPENVPN_PID_FILE:-/tmp/openvpn.pid}"
+    PID=$(cat "${pid_file}" 2>/dev/null)
     if [ -n "${PID}" ] && is_numeric "${PID}"; then
         sudo /usr/local/bin/kill-openvpn "${PID}" 2>/dev/null || true
         # Wait up to 5 seconds for OpenVPN to stop
@@ -165,7 +170,7 @@ stop_openvpn() {
             sudo /usr/local/bin/kill-openvpn -9 "${PID}" 2>/dev/null || true
         fi
         
-        rm -f "${OPENVPN_PID_FILE:-/tmp/openvpn.pid}"
+        rm -f "${pid_file}"
         log "OpenVPN stopped"
     fi
 

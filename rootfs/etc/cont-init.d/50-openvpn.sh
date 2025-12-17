@@ -3,12 +3,6 @@
 set -e # Exit immediately if a command exits with a non-zero status.
 set -u # Treat unset variables as an error.
 
-# Check if OpenVPN is enabled
-if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
-    # OpenVPN is disabled, nothing to do
-    exit 0
-fi
-
 log() {
     echo "[cont-init.d] 50-openvpn.sh: $@"
 }
@@ -17,19 +11,26 @@ log_error() {
     echo "[cont-init.d] 50-openvpn.sh: ERROR: $@" >&2
 }
 
+# Check if OpenVPN is enabled
+if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
+    # OpenVPN is disabled, create down file to prevent service from starting
+    touch /etc/services.d/openvpn/down
+    log "OpenVPN is disabled, service will not start"
+    exit 0
+fi
+
 log "OpenVPN is enabled, checking configuration..."
 
 # Create OpenVPN config directory
 mkdir -p /config/openvpn
 mkdir -p /config/logs
 
-# Remove the down file to allow the service to start
+# Ensure the down file is removed to allow the service to start
 # In s6-overlay, a 'down' file in the service directory prevents the service from auto-starting
-# By default, we ship with a down file, and remove it here when OpenVPN is enabled
 if [ -f /etc/services.d/openvpn/down ]; then
     rm -f /etc/services.d/openvpn/down
-    log "Enabled OpenVPN service auto-start"
 fi
+log "OpenVPN service auto-start enabled"
 
 # Verify that the config file exists
 if [ ! -f "${OPENVPN_CONFIG_FILE}" ]; then

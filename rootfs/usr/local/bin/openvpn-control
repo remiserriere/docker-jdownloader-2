@@ -1,0 +1,188 @@
+#!/bin/sh
+
+# OpenVPN service control script
+# This script allows users to control the OpenVPN service from within the container
+
+set -u # Treat unset variables as an error
+
+SERVICE_NAME="openvpn"
+SERVICE_DIR="/var/run/s6/services/${SERVICE_NAME}"
+
+log() {
+    echo "[openvpn-control] $@"
+}
+
+log_error() {
+    echo "[openvpn-control] ERROR: $@" >&2
+}
+
+usage() {
+    cat << EOF
+Usage: openvpn-control [start|stop|restart|status]
+
+Control the OpenVPN service running in this container.
+
+Commands:
+  start    - Start the OpenVPN service
+  stop     - Stop the OpenVPN service
+  restart  - Restart the OpenVPN service
+  status   - Check if the OpenVPN service is running
+
+Examples:
+  openvpn-control start
+  openvpn-control status
+  openvpn-control restart
+EOF
+}
+
+is_service_running() {
+    # Check if the service directory exists and is supervised
+    if [ ! -d "${SERVICE_DIR}" ]; then
+        return 1
+    fi
+    
+    # Check if the service has a pid file and the process is running
+    if [ -f "${SERVICE_DIR}/pid" ]; then
+        PID=$(cat "${SERVICE_DIR}/pid" 2>/dev/null)
+        if [ -n "${PID}" ] && kill -0 "${PID}" 2>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+start_service() {
+    log "Starting OpenVPN service..."
+    
+    # Check if already running
+    if is_service_running; then
+        log "OpenVPN service is already running"
+        return 0
+    fi
+    
+    # Use s6-svc to start the service
+    if s6-svc -u "${SERVICE_DIR}" 2>/dev/null; then
+        # Wait up to 5 seconds for the service to start
+        RETRY_COUNT=0
+        MAX_RETRIES=10
+        while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            sleep 0.5
+            if is_service_running; then
+                log "OpenVPN service started successfully"
+                return 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+        done
+        log_error "Failed to start OpenVPN service (timed out after 5 seconds)"
+        return 1
+    else
+        log_error "Failed to send start command to OpenVPN service"
+        return 1
+    fi
+}
+
+stop_service() {
+    log "Stopping OpenVPN service..."
+    
+    # Check if already stopped
+    if ! is_service_running; then
+        log "OpenVPN service is already stopped"
+        return 0
+    fi
+    
+    # Use s6-svc to stop the service
+    if s6-svc -d "${SERVICE_DIR}" 2>/dev/null; then
+        # Wait up to 5 seconds for the service to stop
+        RETRY_COUNT=0
+        MAX_RETRIES=10
+        while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            sleep 0.5
+            if ! is_service_running; then
+                log "OpenVPN service stopped successfully"
+                return 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+        done
+        log_error "Failed to stop OpenVPN service (timed out after 5 seconds)"
+        return 1
+    else
+        log_error "Failed to send stop command to OpenVPN service"
+        return 1
+    fi
+}
+
+restart_service() {
+    log "Restarting OpenVPN service..."
+    
+    # Stop the service and check if it succeeded
+    if ! stop_service; then
+        log_error "Failed to stop service, aborting restart"
+        return 1
+    fi
+    
+    sleep 1
+    
+    # Start the service
+    start_service
+}
+
+status_service() {
+    if is_service_running; then
+        log "OpenVPN service is running"
+        
+        # Try to get the PID
+        if [ -f "${SERVICE_DIR}/pid" ]; then
+            PID=$(cat "${SERVICE_DIR}/pid" 2>/dev/null)
+            if [ -n "${PID}" ]; then
+                log "PID: ${PID}"
+            fi
+        fi
+        
+        # Show recent log entries if available
+        if [ -f /config/logs/openvpn.log ]; then
+            log "Recent log entries:"
+            tail -n 10 /config/logs/openvpn.log
+        fi
+        
+        return 0
+    else
+        log "OpenVPN service is not running"
+        return 1
+    fi
+}
+
+# Main script logic
+if [ $# -eq 0 ]; then
+    log_error "No command specified"
+    usage
+    exit 1
+fi
+
+COMMAND="$1"
+
+case "${COMMAND}" in
+    start)
+        start_service
+        ;;
+    stop)
+        stop_service
+        ;;
+    restart)
+        restart_service
+        ;;
+    status)
+        status_service
+        ;;
+    help|-h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        log_error "Unknown command: ${COMMAND}"
+        usage
+        exit 1
+        ;;
+esac
+
+exit $?

@@ -51,6 +51,15 @@ OPENVPN_OPTS="${OPENVPN_OPTS} --auth-nocache"
 log "Starting OpenVPN..."
 log "Configuration file: ${OPENVPN_CONFIG_FILE}"
 
+# Create a named pipe for logging
+LOG_PIPE=/tmp/openvpn-log-pipe.$$
+mkfifo "${LOG_PIPE}"
+
+# Start tee in background to log output
+tee -a /config/logs/openvpn.log < "${LOG_PIPE}" &
+TEE_PID=$!
+
 # Start OpenVPN with auto-restart
 # The exec will replace this process, and s6 will handle restarts
-exec /usr/sbin/openvpn ${OPENVPN_OPTS} 2>&1 | tee -a /config/logs/openvpn.log
+# Output goes to the named pipe which tee reads and logs
+exec /usr/sbin/openvpn ${OPENVPN_OPTS} > "${LOG_PIPE}" 2>&1

@@ -93,7 +93,9 @@ ENV \
     JDOWNLOADER_HEADLESS=0 \
     JDOWNLOADER_MAX_MEM= \
     OPENVPN_ENABLED=0 \
-    OPENVPN_CONFIG_FILE=/config/openvpn/config.ovpn
+    OPENVPN_CONFIG_FILE=/config/openvpn/config.ovpn \
+    OPENVPN_PID_FILE=/tmp/openvpn.pid \
+    OPENVPN_TAIL_PID_FILE=/tmp/openvpn-tail.pid
 
 # Define mountable directories.
 VOLUME ["/output"]

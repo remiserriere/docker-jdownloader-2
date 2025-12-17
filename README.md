@@ -134,6 +134,8 @@ docker run -d \
 |----------|-------------|---------|
 |`OPENVPN_ENABLED`| Set to `1` to enable OpenVPN. When enabled, the OpenVPN process will automatically restart if it crashes. | `0` |
 |`OPENVPN_CONFIG_FILE`| Path to the OpenVPN configuration file inside the container. | `/config/openvpn/config.ovpn` |
+|`OPENVPN_PID_FILE`| Path where the OpenVPN PID file is stored. This can be customized if needed. | `/tmp/openvpn.pid` |
+|`OPENVPN_TAIL_PID_FILE`| Path where the OpenVPN tail process PID file is stored. This can be customized if needed. | `/tmp/openvpn-tail.pid` |
 
 ### OpenVPN Configuration Files
 
@@ -245,6 +247,8 @@ the `-e` parameter in the format `<VARIABLE_NAME>=<VALUE>`.
 |`JDOWNLOADER_MAX_MEM`| Maximum amount of memory JDownloader is allowed to use. One of the following memory unit (case insensitive) should be added as a suffix to the size: `G`, `M` or `K`.  When this variable is not set, the limit is automatically calculated based on the amount of RAM of the system. | (no value) |
 |`OPENVPN_ENABLED`| When set to `1`, enables OpenVPN. The container must be started with `--cap-add=NET_ADMIN` and `--device=/dev/net/tun` for OpenVPN to work. See [OpenVPN Support](#openvpn-support) for details. | `0` |
 |`OPENVPN_CONFIG_FILE`| Path to the OpenVPN configuration file inside the container. | `/config/openvpn/config.ovpn` |
+|`OPENVPN_PID_FILE`| Path where the OpenVPN PID file is stored. This can be customized if needed. | `/tmp/openvpn.pid` |
+|`OPENVPN_TAIL_PID_FILE`| Path where the OpenVPN tail process PID file is stored. This can be customized if needed. | `/tmp/openvpn-tail.pid` |
 
 #### Deployment Considerations
 

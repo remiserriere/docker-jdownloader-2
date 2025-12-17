@@ -144,7 +144,7 @@ stop_openvpn() {
     log "Stopping OpenVPN..."
     PID=$(cat /tmp/openvpn.pid 2>/dev/null)
     if [ -n "${PID}" ] && [ "${PID}" -eq "${PID}" ] 2>/dev/null; then
-        sudo kill "${PID}" 2>/dev/null || true
+        sudo /usr/local/bin/kill-openvpn "${PID}" 2>/dev/null || true
         # Wait up to 5 seconds for OpenVPN to stop
         RETRY_COUNT=0
         MAX_RETRIES=10
@@ -155,7 +155,7 @@ stop_openvpn() {
         
         # Force kill if still running
         if is_openvpn_running; then
-            sudo kill -9 "${PID}" 2>/dev/null || true
+            sudo /usr/local/bin/kill-openvpn -9 "${PID}" 2>/dev/null || true
         fi
         
         rm -f /tmp/openvpn.pid

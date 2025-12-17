@@ -63,14 +63,19 @@ start_service() {
     
     # Use s6-svc to start the service
     if s6-svc -u "${SERVICE_DIR}" 2>/dev/null; then
-        sleep 2
-        if is_service_running; then
-            log "OpenVPN service started successfully"
-            return 0
-        else
-            log_error "Failed to start OpenVPN service"
-            return 1
-        fi
+        # Wait up to 5 seconds for the service to start
+        RETRY_COUNT=0
+        MAX_RETRIES=10
+        while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            sleep 0.5
+            if is_service_running; then
+                log "OpenVPN service started successfully"
+                return 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+        done
+        log_error "Failed to start OpenVPN service (timed out after 5 seconds)"
+        return 1
     else
         log_error "Failed to send start command to OpenVPN service"
         return 1
@@ -88,14 +93,19 @@ stop_service() {
     
     # Use s6-svc to stop the service
     if s6-svc -d "${SERVICE_DIR}" 2>/dev/null; then
-        sleep 2
-        if ! is_service_running; then
-            log "OpenVPN service stopped successfully"
-            return 0
-        else
-            log_error "Failed to stop OpenVPN service"
-            return 1
-        fi
+        # Wait up to 5 seconds for the service to stop
+        RETRY_COUNT=0
+        MAX_RETRIES=10
+        while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+            sleep 0.5
+            if ! is_service_running; then
+                log "OpenVPN service stopped successfully"
+                return 0
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+        done
+        log_error "Failed to stop OpenVPN service (timed out after 5 seconds)"
+        return 1
     else
         log_error "Failed to send stop command to OpenVPN service"
         return 1
@@ -104,8 +114,16 @@ stop_service() {
 
 restart_service() {
     log "Restarting OpenVPN service..."
-    stop_service
+    
+    # Stop the service and check if it succeeded
+    if ! stop_service; then
+        log_error "Failed to stop service, aborting restart"
+        return 1
+    fi
+    
     sleep 1
+    
+    # Start the service
     start_service
 }
 

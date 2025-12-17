@@ -5,8 +5,8 @@
 
 set -u # Treat unset variables as an error
 
-SERVICE_NAME="openvpn"
-SERVICE_DIR="/var/run/s6/services/${SERVICE_NAME}"
+OPENVPN_PID_FILE="/var/run/openvpn.pid"
+OPENVPN_TAIL_PID_FILE="/var/run/openvpn-tail.pid"
 
 log() {
     echo "[openvpn-control] $@"
@@ -14,6 +14,16 @@ log() {
 
 log_error() {
     echo "[openvpn-control] ERROR: $@" >&2
+}
+
+cleanup_tail_process() {
+    if [ -f "${OPENVPN_TAIL_PID_FILE}" ]; then
+        TAIL_PID=$(cat "${OPENVPN_TAIL_PID_FILE}" 2>/dev/null)
+        if [ -n "${TAIL_PID}" ] && [ "${TAIL_PID}" -eq "${TAIL_PID}" ] 2>/dev/null; then
+            kill "${TAIL_PID}" 2>/dev/null || true
+        fi
+        rm -f "${OPENVPN_TAIL_PID_FILE}"
+    fi
 }
 
 usage() {
@@ -36,14 +46,9 @@ EOF
 }
 
 is_service_running() {
-    # Check if the service directory exists and is supervised
-    if [ ! -d "${SERVICE_DIR}" ]; then
-        return 1
-    fi
-    
-    # Check if the service has a pid file and the process is running
-    if [ -f "${SERVICE_DIR}/pid" ]; then
-        PID=$(cat "${SERVICE_DIR}/pid" 2>/dev/null)
+    # Check if the PID file exists and the process is running
+    if [ -f "${OPENVPN_PID_FILE}" ]; then
+        PID=$(cat "${OPENVPN_PID_FILE}" 2>/dev/null)
         if [ -n "${PID}" ] && kill -0 "${PID}" 2>/dev/null; then
             return 0
         fi
@@ -60,26 +65,82 @@ start_service() {
         log "OpenVPN service is already running"
         return 0
     fi
-    
-    # Use s6-svc to start the service
-    if s6-svc -u "${SERVICE_DIR}" 2>/dev/null; then
-        # Wait up to 5 seconds for the service to start
-        RETRY_COUNT=0
-        MAX_RETRIES=10
-        while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
-            sleep 0.5
-            if is_service_running; then
-                log "OpenVPN service started successfully"
-                return 0
-            fi
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-        done
-        log_error "Failed to start OpenVPN service (timed out after 5 seconds)"
-        return 1
-    else
-        log_error "Failed to send start command to OpenVPN service"
+
+    # Check if OpenVPN is enabled
+    if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
+        log_error "OpenVPN is not enabled (OPENVPN_ENABLED=0)"
+        log_error "Set OPENVPN_ENABLED=1 environment variable to enable OpenVPN"
         return 1
     fi
+
+    # Check for required capabilities and devices
+    if [ ! -c /dev/net/tun ]; then
+        log_error "/dev/net/tun device not found!"
+        log_error "Container must be started with --device=/dev/net/tun"
+        return 1
+    fi
+
+    # Check if config file exists
+    if [ ! -f "${OPENVPN_CONFIG_FILE}" ]; then
+        log_error "OpenVPN configuration file not found: ${OPENVPN_CONFIG_FILE}"
+        log_error "Please mount your OpenVPN configuration file to ${OPENVPN_CONFIG_FILE}"
+        return 1
+    fi
+
+    # Create OpenVPN config directory and logs directory
+    mkdir -p /config/openvpn
+    mkdir -p /config/logs
+
+    # Prepare OpenVPN arguments
+    OPENVPN_OPTS="--config ${OPENVPN_CONFIG_FILE}"
+
+    # Check if auth-user-pass is already specified in the config file
+    # If not, and credentials.txt exists, add it as a command-line option
+    if ! grep -q "^[[:space:]]*auth-user-pass\([[:space:]]\|$\)" "${OPENVPN_CONFIG_FILE}"; then
+        if [ -f /config/openvpn/credentials.txt ]; then
+            OPENVPN_OPTS="${OPENVPN_OPTS} --auth-user-pass /config/openvpn/credentials.txt"
+            log "Using credentials from /config/openvpn/credentials.txt"
+        fi
+    else
+        log "auth-user-pass directive found in config file"
+    fi
+
+    # Add other common options
+    OPENVPN_OPTS="${OPENVPN_OPTS} --cd /config/openvpn"
+    OPENVPN_OPTS="${OPENVPN_OPTS} --script-security 2"
+    OPENVPN_OPTS="${OPENVPN_OPTS} --auth-nocache"
+    OPENVPN_OPTS="${OPENVPN_OPTS} --writepid ${OPENVPN_PID_FILE}"
+    OPENVPN_OPTS="${OPENVPN_OPTS} --daemon"
+
+    log "Configuration file: ${OPENVPN_CONFIG_FILE}"
+    
+    # Start OpenVPN with logging to file
+    OPENVPN_OPTS="${OPENVPN_OPTS} --log-append /config/logs/openvpn.log"
+    /usr/sbin/openvpn ${OPENVPN_OPTS}
+    
+    # Wait up to 5 seconds for the service to start
+    RETRY_COUNT=0
+    MAX_RETRIES=10
+    while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+        sleep 0.5
+        if is_service_running; then
+            log "OpenVPN service started successfully"
+            
+            # Start a background process to tail OpenVPN logs to stdout
+            # This allows logs to appear in docker logs while also being saved to file
+            if [ ! -f "${OPENVPN_TAIL_PID_FILE}" ]; then
+                tail -F /config/logs/openvpn.log 2>/dev/null | sed 's/^/[openvpn] /' &
+                TAIL_PID=$!
+                echo "$TAIL_PID" > "${OPENVPN_TAIL_PID_FILE}"
+            fi
+            
+            return 0
+        fi
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+    
+    log_error "Failed to start OpenVPN service (timed out after 5 seconds)"
+    return 1
 }
 
 stop_service() {
@@ -88,28 +149,51 @@ stop_service() {
     # Check if already stopped
     if ! is_service_running; then
         log "OpenVPN service is already stopped"
+        cleanup_tail_process
         return 0
     fi
     
-    # Use s6-svc to stop the service
-    if s6-svc -d "${SERVICE_DIR}" 2>/dev/null; then
-        # Wait up to 5 seconds for the service to stop
-        RETRY_COUNT=0
-        MAX_RETRIES=10
-        while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
-            sleep 0.5
-            if ! is_service_running; then
-                log "OpenVPN service stopped successfully"
-                return 0
-            fi
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-        done
-        log_error "Failed to stop OpenVPN service (timed out after 5 seconds)"
-        return 1
-    else
-        log_error "Failed to send stop command to OpenVPN service"
+    # Get the PID and send termination signal
+    PID=$(cat "${OPENVPN_PID_FILE}" 2>/dev/null)
+    if [ -z "${PID}" ] || ! [ "${PID}" -eq "${PID}" ] 2>/dev/null; then
+        log_error "Could not read valid PID from PID file"
+        cleanup_tail_process
         return 1
     fi
+    
+    # Send SIGTERM to gracefully stop OpenVPN
+    kill "${PID}" 2>/dev/null
+    
+    # Wait up to 5 seconds for the service to stop
+    RETRY_COUNT=0
+    MAX_RETRIES=10
+    while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
+        sleep 0.5
+        if ! is_service_running; then
+            log "OpenVPN service stopped successfully"
+            rm -f "${OPENVPN_PID_FILE}"
+            cleanup_tail_process
+            return 0
+        fi
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+    
+    # If still running, force kill
+    if is_service_running; then
+        log "Sending SIGKILL to force stop OpenVPN..."
+        kill -9 "${PID}" 2>/dev/null
+        sleep 1
+        rm -f "${OPENVPN_PID_FILE}"
+        cleanup_tail_process
+        
+        if ! is_service_running; then
+            log "OpenVPN service force stopped"
+            return 0
+        fi
+    fi
+    
+    log_error "Failed to stop OpenVPN service"
+    return 1
 }
 
 restart_service() {
@@ -132,8 +216,8 @@ status_service() {
         log "OpenVPN service is running"
         
         # Try to get the PID
-        if [ -f "${SERVICE_DIR}/pid" ]; then
-            PID=$(cat "${SERVICE_DIR}/pid" 2>/dev/null)
+        if [ -f "${OPENVPN_PID_FILE}" ]; then
+            PID=$(cat "${OPENVPN_PID_FILE}" 2>/dev/null)
             if [ -n "${PID}" ]; then
                 log "PID: ${PID}"
             fi

@@ -11,11 +11,14 @@ log_error() {
     echo "[cont-init.d] 50-openvpn.sh: ERROR: $@" >&2
 }
 
+# OpenVPN is now started by startapp.sh, not by s6-overlay
+# Always disable the s6 service to prevent conflicts
+touch /etc/services.d/openvpn/down
+log "OpenVPN s6 service disabled (OpenVPN is managed by startapp.sh)"
+
 # Check if OpenVPN is enabled
 if ! is-bool-val-true "${OPENVPN_ENABLED:-0}"; then
-    # OpenVPN is disabled, create down file to prevent service from starting
-    touch /etc/services.d/openvpn/down
-    log "OpenVPN is disabled, service will not start"
+    log "OpenVPN is disabled"
     exit 0
 fi
 
@@ -24,13 +27,6 @@ log "OpenVPN is enabled, checking configuration..."
 # Create OpenVPN config directory
 mkdir -p /config/openvpn
 mkdir -p /config/logs
-
-# Ensure the down file is removed to allow the service to start
-# In s6-overlay, a 'down' file in the service directory prevents the service from auto-starting
-if [ -f /etc/services.d/openvpn/down ]; then
-    rm -f /etc/services.d/openvpn/down
-fi
-log "OpenVPN service auto-start enabled"
 
 # Verify that the config file exists
 if [ ! -f "${OPENVPN_CONFIG_FILE}" ]; then

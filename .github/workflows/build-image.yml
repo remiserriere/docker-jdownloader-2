@@ -63,7 +63,7 @@ jobs:
           # Determine the Docker container tags.
           # Always push to GitHub Container Registry
           TAGS="ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:${VERSION}"
-          if [[ $GITHUB_REF =~ refs/tags/* ]]; then
+          if [[ $GITHUB_REF =~ refs/tags/* ]] || [[ $GITHUB_REF == refs/heads/master ]]; then
             TAGS="$TAGS,ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:latest"
           fi
           # Determine the release type.

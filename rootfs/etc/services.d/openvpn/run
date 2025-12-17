@@ -33,7 +33,7 @@ OPENVPN_OPTS="--config ${OPENVPN_CONFIG_FILE}"
 
 # Check if auth-user-pass is already specified in the config file
 # If not, and credentials.txt exists, add it as a command-line option
-if ! grep -q "^[[:space:]]*auth-user-pass" "${OPENVPN_CONFIG_FILE}"; then
+if ! grep -q "^[[:space:]]*auth-user-pass\([[:space:]]\|$\)" "${OPENVPN_CONFIG_FILE}"; then
     if [ -f /config/openvpn/credentials.txt ]; then
         OPENVPN_OPTS="${OPENVPN_OPTS} --auth-user-pass /config/openvpn/credentials.txt"
         log "Using credentials from /config/openvpn/credentials.txt"

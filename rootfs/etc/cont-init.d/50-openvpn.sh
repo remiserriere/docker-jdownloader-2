@@ -61,7 +61,7 @@ else
 fi
 
 # Check if auth-user-pass is specified in the config file
-if grep -q "^[[:space:]]*auth-user-pass" "${OPENVPN_CONFIG_FILE}"; then
+if grep -q "^[[:space:]]*auth-user-pass\([[:space:]]\|$\)" "${OPENVPN_CONFIG_FILE}"; then
     log "auth-user-pass directive found in OpenVPN config file"
 fi
 

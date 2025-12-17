@@ -6,6 +6,7 @@
 set -u # Treat unset variables as an error
 
 OPENVPN_PID_FILE="/var/run/openvpn.pid"
+OPENVPN_TAIL_PID_FILE="/var/run/openvpn-tail.pid"
 
 log() {
     echo "[openvpn-control] $@"
@@ -13,6 +14,16 @@ log() {
 
 log_error() {
     echo "[openvpn-control] ERROR: $@" >&2
+}
+
+cleanup_tail_process() {
+    if [ -f "${OPENVPN_TAIL_PID_FILE}" ]; then
+        TAIL_PID=$(cat "${OPENVPN_TAIL_PID_FILE}" 2>/dev/null)
+        if [ -n "${TAIL_PID}" ] && [ "${TAIL_PID}" -eq "${TAIL_PID}" ] 2>/dev/null; then
+            kill "${TAIL_PID}" 2>/dev/null || true
+        fi
+        rm -f "${OPENVPN_TAIL_PID_FILE}"
+    fi
 }
 
 usage() {
@@ -103,15 +114,6 @@ start_service() {
 
     log "Configuration file: ${OPENVPN_CONFIG_FILE}"
     
-    # Start a background process to tail OpenVPN logs to stdout
-    # This allows logs to appear in docker logs while also being saved to file
-    touch /config/logs/openvpn.log
-    if [ ! -f /var/run/openvpn-tail.pid ]; then
-        tail -F /config/logs/openvpn.log 2>/dev/null | sed 's/^/[openvpn] /' &
-        TAIL_PID=$!
-        echo "$TAIL_PID" > /var/run/openvpn-tail.pid
-    fi
-
     # Start OpenVPN with logging to file
     OPENVPN_OPTS="${OPENVPN_OPTS} --log-append /config/logs/openvpn.log"
     /usr/sbin/openvpn ${OPENVPN_OPTS}
@@ -123,17 +125,21 @@ start_service() {
         sleep 0.5
         if is_service_running; then
             log "OpenVPN service started successfully"
+            
+            # Start a background process to tail OpenVPN logs to stdout
+            # This allows logs to appear in docker logs while also being saved to file
+            if [ ! -f "${OPENVPN_TAIL_PID_FILE}" ]; then
+                tail -F /config/logs/openvpn.log 2>/dev/null | sed 's/^/[openvpn] /' &
+                TAIL_PID=$!
+                echo "$TAIL_PID" > "${OPENVPN_TAIL_PID_FILE}"
+            fi
+            
             return 0
         fi
         RETRY_COUNT=$((RETRY_COUNT + 1))
     done
     
     log_error "Failed to start OpenVPN service (timed out after 5 seconds)"
-    # Kill the tail process if OpenVPN failed to start
-    if [ -f /var/run/openvpn-tail.pid ]; then
-        kill $(cat /var/run/openvpn-tail.pid) 2>/dev/null || true
-        rm -f /var/run/openvpn-tail.pid
-    fi
     return 1
 }
 
@@ -143,18 +149,15 @@ stop_service() {
     # Check if already stopped
     if ! is_service_running; then
         log "OpenVPN service is already stopped"
-        # Still try to cleanup tail process if it exists
-        if [ -f /var/run/openvpn-tail.pid ]; then
-            kill $(cat /var/run/openvpn-tail.pid) 2>/dev/null || true
-            rm -f /var/run/openvpn-tail.pid
-        fi
+        cleanup_tail_process
         return 0
     fi
     
     # Get the PID and send termination signal
     PID=$(cat "${OPENVPN_PID_FILE}" 2>/dev/null)
-    if [ -z "${PID}" ]; then
-        log_error "Could not read PID file"
+    if [ -z "${PID}" ] || ! [ "${PID}" -eq "${PID}" ] 2>/dev/null; then
+        log_error "Could not read valid PID from PID file"
+        cleanup_tail_process
         return 1
     fi
     
@@ -169,16 +172,7 @@ stop_service() {
         if ! is_service_running; then
             log "OpenVPN service stopped successfully"
             rm -f "${OPENVPN_PID_FILE}"
-            
-            # Stop the tail process that outputs logs to stdout
-            if [ -f /var/run/openvpn-tail.pid ]; then
-                TAIL_PID=$(cat /var/run/openvpn-tail.pid 2>/dev/null)
-                if [ -n "${TAIL_PID}" ]; then
-                    kill "${TAIL_PID}" 2>/dev/null || true
-                fi
-                rm -f /var/run/openvpn-tail.pid
-            fi
-            
+            cleanup_tail_process
             return 0
         fi
         RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -190,15 +184,7 @@ stop_service() {
         kill -9 "${PID}" 2>/dev/null
         sleep 1
         rm -f "${OPENVPN_PID_FILE}"
-        
-        # Stop the tail process that outputs logs to stdout
-        if [ -f /var/run/openvpn-tail.pid ]; then
-            TAIL_PID=$(cat /var/run/openvpn-tail.pid 2>/dev/null)
-            if [ -n "${TAIL_PID}" ]; then
-                kill "${TAIL_PID}" 2>/dev/null || true
-            fi
-            rm -f /var/run/openvpn-tail.pid
-        fi
+        cleanup_tail_process
         
         if ! is_service_running; then
             log "OpenVPN service force stopped"

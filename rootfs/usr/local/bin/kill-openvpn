@@ -20,11 +20,13 @@ else
     PID="$1"
 fi
 
-# Validate PID is numeric
-if ! echo "$PID" | grep -qE '^[0-9]+$'; then
-    echo "Error: PID must be numeric" >&2
-    exit 1
-fi
+# Validate PID is numeric using shell parameter expansion
+case "$PID" in
+    ''|*[!0-9]*)
+        echo "Error: PID must be numeric" >&2
+        exit 1
+        ;;
+esac
 
 # Check if the process exists and is an openvpn process
 if [ ! -d "/proc/$PID" ]; then
@@ -32,11 +34,19 @@ if [ ! -d "/proc/$PID" ]; then
     exit 1
 fi
 
-# Get the process command
+# Get the process command name and full command line
 PROC_CMD=$(cat "/proc/$PID/comm" 2>/dev/null || echo "")
+PROC_CMDLINE=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || echo "")
 
+# Validate both the process name and that the command line contains openvpn binary path
 if [ "$PROC_CMD" != "openvpn" ]; then
     echo "Error: Process $PID is not an openvpn process (found: $PROC_CMD)" >&2
+    exit 1
+fi
+
+# Additional validation: check that the full command line contains /usr/sbin/openvpn
+if ! echo "$PROC_CMDLINE" | grep -q "/usr/sbin/openvpn"; then
+    echo "Error: Process $PID command line does not contain /usr/sbin/openvpn" >&2
     exit 1
 fi
 

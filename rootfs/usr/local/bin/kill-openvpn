@@ -44,11 +44,17 @@ if [ "$PROC_CMD" != "openvpn" ]; then
     exit 1
 fi
 
-# Additional validation: check that the full command line contains /usr/sbin/openvpn
-if ! echo "$PROC_CMDLINE" | grep -q "/usr/sbin/openvpn"; then
-    echo "Error: Process $PID command line does not contain /usr/sbin/openvpn" >&2
-    exit 1
-fi
+# Additional validation: check that the command line starts with /usr/sbin/openvpn
+# This prevents bypassing the check by having the path in arguments
+case "$PROC_CMDLINE" in
+    /usr/sbin/openvpn\ *|/usr/sbin/openvpn)
+        # Valid: command line starts with the openvpn binary path
+        ;;
+    *)
+        echo "Error: Process $PID does not appear to be the OpenVPN binary" >&2
+        exit 1
+        ;;
+esac
 
 # Kill the process
 if [ -n "$SIGNAL" ]; then

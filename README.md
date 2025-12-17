@@ -322,13 +322,15 @@ included in this example.
 version: '3'
 services:
   jdownloader-2:
-    image: jlesage/jdownloader-2
+    image: ghcr.io/remiserriere/jdownloader-2:latest
     ports:
       - "5800:5800"
     volumes:
       - "/docker/appdata/jdownloader-2:/config:rw"
       - "/home/user/Downloads:/output:rw"
 ```
+
+For a Docker Compose configuration with OpenVPN enabled, see the `docker-compose-openvpn.yml` file in this repository.
 
 ## Docker Image Versioning and Tags
 

@@ -38,7 +38,8 @@ is_openvpn_running() {
     local pid_file="${OPENVPN_PID_FILE:-/tmp/openvpn.pid}"
     if [ -f "${pid_file}" ]; then
         PID=$(cat "${pid_file}" 2>/dev/null)
-        if [ -n "${PID}" ] && kill -0 "${PID}" 2>/dev/null; then
+        # Use /proc to check if process exists, works across users (app user checking root process)
+        if [ -n "${PID}" ] && [ -d "/proc/${PID}" ]; then
             return 0
         fi
     fi

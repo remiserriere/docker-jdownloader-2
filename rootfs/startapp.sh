@@ -27,6 +27,13 @@ is_jd_running() {
     pgrep java >/dev/null
 }
 
+is_numeric() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
 is_openvpn_running() {
     if [ -f /tmp/openvpn.pid ]; then
         PID=$(cat /tmp/openvpn.pid 2>/dev/null)
@@ -40,7 +47,7 @@ is_openvpn_running() {
 cleanup_openvpn_tail() {
     if [ -f /tmp/openvpn-tail.pid ]; then
         TAIL_PID=$(cat /tmp/openvpn-tail.pid 2>/dev/null)
-        if [ -n "${TAIL_PID}" ] && [ "${TAIL_PID}" -eq "${TAIL_PID}" ] 2>/dev/null; then
+        if [ -n "${TAIL_PID}" ] && is_numeric "${TAIL_PID}"; then
             kill "${TAIL_PID}" 2>/dev/null || true
         fi
         rm -f /tmp/openvpn-tail.pid
@@ -108,7 +115,7 @@ start_openvpn() {
 
     # Start OpenVPN with logging to file
     OPENVPN_OPTS="${OPENVPN_OPTS} --log-append /config/logs/openvpn.log"
-    /usr/sbin/openvpn ${OPENVPN_OPTS}
+    sudo /usr/sbin/openvpn ${OPENVPN_OPTS}
 
     # Wait a moment and verify it started
     sleep 2
@@ -143,8 +150,8 @@ stop_openvpn() {
 
     log "Stopping OpenVPN..."
     PID=$(cat /tmp/openvpn.pid 2>/dev/null)
-    if [ -n "${PID}" ] && [ "${PID}" -eq "${PID}" ] 2>/dev/null; then
-        kill "${PID}" 2>/dev/null || true
+    if [ -n "${PID}" ] && is_numeric "${PID}"; then
+        sudo /usr/local/bin/kill-openvpn "${PID}" 2>/dev/null || true
         # Wait up to 5 seconds for OpenVPN to stop
         RETRY_COUNT=0
         MAX_RETRIES=10
@@ -155,7 +162,7 @@ stop_openvpn() {
         
         # Force kill if still running
         if is_openvpn_running; then
-            kill -9 "${PID}" 2>/dev/null || true
+            sudo /usr/local/bin/kill-openvpn -9 "${PID}" 2>/dev/null || true
         fi
         
         rm -f /tmp/openvpn.pid

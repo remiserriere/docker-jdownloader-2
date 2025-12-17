@@ -56,7 +56,9 @@ RUN \
         openvpn \
         # For network utilities
         iptables \
-        ip6tables
+        ip6tables \
+        # For running OpenVPN with elevated privileges
+        sudo
 
 # Generate and install favicons.
 RUN \
@@ -66,6 +68,16 @@ RUN \
 # Add files.
 COPY rootfs/ /
 COPY --from=jd2 /defaults/JDownloader.jar /defaults/JDownloader.jar
+
+# Configure sudo to allow app user to run openvpn and kill-openvpn wrapper ONLY (security: restricted to these binaries only)
+# This allows OpenVPN to run with NET_ADMIN capabilities and be stopped while preventing any other sudo usage
+# The kill-openvpn wrapper validates that only OpenVPN processes can be killed
+RUN \
+    chmod +x /usr/local/bin/kill-openvpn && \
+    echo "app ALL=(ALL) NOPASSWD: /usr/sbin/openvpn" > /etc/sudoers.d/openvpn && \
+    echo "app ALL=(ALL) NOPASSWD: /usr/local/bin/kill-openvpn" >> /etc/sudoers.d/openvpn && \
+    chmod 0440 /etc/sudoers.d/openvpn && \
+    visudo -c -f /etc/sudoers.d/openvpn
 
 # Set internal environment variables.
 RUN \

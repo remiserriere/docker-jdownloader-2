@@ -1,0 +1,64 @@
+#!/bin/sh
+# Wrapper script to safely kill OpenVPN processes only
+# This script validates that the PID belongs to an openvpn process before killing it
+
+set -e
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 [-9] <pid>" >&2
+    exit 1
+fi
+
+SIGNAL=""
+PID=""
+
+# Parse arguments
+if [ "$1" = "-9" ]; then
+    SIGNAL="-9"
+    PID="$2"
+else
+    PID="$1"
+fi
+
+# Validate PID is numeric using shell parameter expansion
+case "$PID" in
+    ''|*[!0-9]*)
+        echo "Error: PID must be numeric" >&2
+        exit 1
+        ;;
+esac
+
+# Check if the process exists and is an openvpn process
+if [ ! -d "/proc/$PID" ]; then
+    echo "Error: Process $PID does not exist" >&2
+    exit 1
+fi
+
+# Get the process command name and full command line
+PROC_CMD=$(cat "/proc/$PID/comm" 2>/dev/null || echo "")
+PROC_CMDLINE=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || echo "")
+
+# Validate both the process name and that the command line contains openvpn binary path
+if [ "$PROC_CMD" != "openvpn" ]; then
+    echo "Error: Process $PID is not an openvpn process (found: $PROC_CMD)" >&2
+    exit 1
+fi
+
+# Additional validation: check that the command line starts with /usr/sbin/openvpn
+# This prevents bypassing the check by having the path in arguments
+case "$PROC_CMDLINE" in
+    /usr/sbin/openvpn\ *|/usr/sbin/openvpn)
+        # Valid: command line starts with the openvpn binary path
+        ;;
+    *)
+        echo "Error: Process $PID does not appear to be the OpenVPN binary" >&2
+        exit 1
+        ;;
+esac
+
+# Kill the process
+if [ -n "$SIGNAL" ]; then
+    kill -9 "$PID"
+else
+    kill "$PID"
+fi
